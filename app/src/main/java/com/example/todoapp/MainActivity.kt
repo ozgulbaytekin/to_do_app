@@ -54,6 +54,8 @@ fun TodoScreen() {
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedTaskForNotification by remember { mutableStateOf<TodoItem?>(null) }
     var todoText by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf(TaskCategory.PERSONAL) }
+    var showCategoryMenu by remember { mutableStateOf(false) }
     var todoTasks by remember { mutableStateOf(listOf<TodoItem>()) }
     var completedTasks by remember { mutableStateOf(listOf<TodoItem>()) }
 
@@ -79,33 +81,61 @@ fun TodoScreen() {
             .padding(16.dp)
     ) {
         // Input section
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
             OutlinedTextField(
                 value = todoText,
                 onValueChange = { todoText = it },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("Enter a task") }
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(
-                onClick = {
-                    if (todoText.isNotBlank()) {
-                        todoTasks = todoTasks + TodoItem(
-                            id = (todoTasks + completedTasks).size,
-                            title = todoText,
-                            isCompleted = false
-                        )
-                        todoText = ""
-                    }
-                },
-                modifier = Modifier.padding(start = 8.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Add")
+                Box {
+                    OutlinedButton(
+                        onClick = { showCategoryMenu = true }
+                    ) {
+                        Text(selectedCategory.name)
+                    }
+
+                    DropdownMenu(
+                        expanded = showCategoryMenu,
+                        onDismissRequest = { showCategoryMenu = false }
+                    ) {
+                        TaskCategory.values().forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category.name) },
+                                onClick = {
+                                    selectedCategory = category
+                                    showCategoryMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        if (todoText.isNotBlank()) {
+                            todoTasks = todoTasks + TodoItem(
+                                id = (todoTasks + completedTasks).size,
+                                title = todoText,
+                                isCompleted = false,
+                                category = selectedCategory
+                            )
+                            todoText = ""
+                        }
+                    }
+                ) {
+                    Text("Add")
+                }
             }
         }
 
@@ -164,7 +194,6 @@ fun TodoScreen() {
                         calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
                         calendar.set(Calendar.MINUTE, minute)
 
-                        // Update task with notification time
                         todoTasks = todoTasks.map {
                             if (it.id == task.id) {
                                 it.copy(notificationTime = calendar.timeInMillis)
@@ -173,7 +202,6 @@ fun TodoScreen() {
                             }
                         }
 
-                        // Schedule notification
                         notificationHelper.scheduleNotification(task, calendar.timeInMillis)
                     },
                     calendar.get(Calendar.HOUR_OF_DAY),
@@ -202,42 +230,52 @@ fun TodoItemRow(
             .fillMaxWidth()
             .padding(vertical = 4.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
+                .fillMaxWidth()
                 .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = todo.title,
-                modifier = Modifier.weight(1f),
-                style = if (todo.isCompleted) {
-                    MaterialTheme.typography.bodyLarge.copy(
-                        textDecoration = TextDecoration.LineThrough,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = todo.title,
+                        style = if (todo.isCompleted) {
+                            MaterialTheme.typography.bodyLarge.copy(
+                                textDecoration = TextDecoration.LineThrough,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        } else {
+                            MaterialTheme.typography.bodyLarge
+                        }
+                    )
+                    Text(
+                        text = todo.category.name,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
-                } else {
-                    MaterialTheme.typography.bodyLarge
                 }
-            )
 
-            if (!todo.isCompleted) {
-                IconButton(onClick = onSetNotification) {
-                    Icon(
-                        imageVector = if (todo.notificationTime != null)
-                            Icons.Filled.Notifications
-                        else
-                            Icons.Outlined.Notifications,
-                        contentDescription = "Set notification"
-                    )
+                if (!todo.isCompleted) {
+                    IconButton(onClick = onSetNotification) {
+                        Icon(
+                            imageVector = if (todo.notificationTime != null)
+                                Icons.Filled.Notifications
+                            else
+                                Icons.Outlined.Notifications,
+                            contentDescription = "Set notification"
+                        )
+                    }
                 }
+
+                Checkbox(
+                    checked = todo.isCompleted,
+                    onCheckedChange = { onToggleCompletion() }
+                )
             }
-
-            Checkbox(
-                checked = todo.isCompleted,
-                onCheckedChange = { onToggleCompletion() }
-            )
         }
     }
 }
