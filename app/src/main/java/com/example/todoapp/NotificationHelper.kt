@@ -63,6 +63,7 @@ class NotificationHelper(private val context: Context) {
                 set(Calendar.HOUR_OF_DAY, task.dailyReminderHour)
                 set(Calendar.MINUTE, task.dailyReminderMinute)
                 set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
 
                 // If time has already passed today, start from tomorrow
                 if (timeInMillis <= System.currentTimeMillis()) {
@@ -70,7 +71,8 @@ class NotificationHelper(private val context: Context) {
                 }
             }
 
-            alarmManager.setRepeating(
+            // Use inexact repeating to save battery
+            alarmManager.setInexactRepeating(
                 AlarmManager.RTC_WAKEUP,
                 calendar.timeInMillis,
                 AlarmManager.INTERVAL_DAY,
@@ -84,7 +86,6 @@ class NotificationHelper(private val context: Context) {
             )
         }
     }
-
     fun showNotification(taskId: Int, taskTitle: String) {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

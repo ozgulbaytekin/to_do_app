@@ -185,6 +185,7 @@ fun TodoScreen() {
         val calendar = Calendar.getInstance()
         var isDailyReminder by remember { mutableStateOf(false) }
 
+// In TodoScreen, update the AlertDialog:
         AlertDialog(
             onDismissRequest = {
                 showDatePicker = false
@@ -304,67 +305,76 @@ fun TodoScreen() {
             }
         )
     }
+
 }
-    @Composable
-    fun TodoItemRow(
-        todo: TodoItem,
-        onToggleCompletion: () -> Unit,
-        onSetNotification: () -> Unit
+@Composable
+fun TodoItemRow(
+    todo: TodoItem,
+    onToggleCompletion: () -> Unit,
+    onSetNotification: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
     ) {
-        Card(
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = todo.title,
-                        style = if (todo.isCompleted) {
-                            MaterialTheme.typography.bodyLarge.copy(
-                                textDecoration = TextDecoration.LineThrough,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        } else {
-                            MaterialTheme.typography.bodyLarge
-                        }
-                    )
-                    Text(
-                        text = todo.category.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    if (todo.isDailyReminder && todo.notificationTime != null) {
-                        Text(
-                            text = "Daily reminder",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = todo.title,
+                    style = if (todo.isCompleted) {
+                        MaterialTheme.typography.bodyLarge.copy(
+                            textDecoration = TextDecoration.LineThrough,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
+                    } else {
+                        MaterialTheme.typography.bodyLarge
                     }
-                }
-
-                if (!todo.isCompleted) {
-                    IconButton(onClick = onSetNotification) {
-                        Icon(
-                            imageVector = if (todo.notificationTime != null)
-                                Icons.Filled.Notifications
-                            else
-                                Icons.Outlined.Notifications,
-                            contentDescription = "Set notification"
-                        )
-                    }
-                }
-
-                Checkbox(
-                    checked = todo.isCompleted,
-                    onCheckedChange = { onToggleCompletion() }
                 )
+                Text(
+                    text = todo.category.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                if (todo.isDailyReminder && todo.notificationTime != null) {
+                    Text(
+                        text = "Daily reminder",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
+
+            if (!todo.isCompleted) {
+                IconButton(onClick = onSetNotification) {
+                    Icon(
+                        imageVector = if (todo.notificationTime != null)
+                            Icons.Filled.Notifications
+                        else
+                            Icons.Outlined.Notifications,
+                        contentDescription = "Set notification"
+                    )
+                }
+            }
+
+            Checkbox(
+                checked = todo.isCompleted,
+                onCheckedChange = { onToggleCompletion() }
+            )
         }
     }
+    // Update TodoItemRow to show daily reminder time
+    if (todo.isDailyReminder && todo.dailyReminderHour != null) {
+        Text(
+            text = "Daily at ${String.format("%02d:%02d", todo.dailyReminderHour, todo.dailyReminderMinute)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
