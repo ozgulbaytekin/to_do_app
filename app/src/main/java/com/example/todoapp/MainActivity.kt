@@ -192,44 +192,48 @@ fun TodoScreen() {
             },
             title = { Text("Set Reminder") },
             text = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                ) {
-                    Checkbox(
-                        checked = isDailyReminder,
-                        onCheckedChange = { isDailyReminder = it }
-                    )
-                    Text(
-                        text = "Remind every day",
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    DatePickerDialog(
-                        context,
-                        { _, year, month, dayOfMonth ->
-                            calendar.set(year, month, dayOfMonth)
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        Checkbox(
+                            checked = isDailyReminder,
+                            onCheckedChange = { isDailyReminder = it }
+                        )
+                        Text(
+                            text = "Remind every day",
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                    if (isDailyReminder) {
+                        Text(
+                            text = "Choose daily reminder time:",
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                        TextButton(onClick = {
                             TimePickerDialog(
                                 context,
                                 { _, hourOfDay, minute ->
-                                    calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
-                                    calendar.set(Calendar.MINUTE, minute)
-
                                     todoTasks = todoTasks.map {
                                         if (it.id == task.id) {
                                             it.copy(
-                                                notificationTime = calendar.timeInMillis,
-                                                isDailyReminder = isDailyReminder
+                                                dailyReminderHour = hourOfDay,
+                                                dailyReminderMinute = minute,
+                                                isDailyReminder = true
                                             )
                                         } else {
                                             it
                                         }
                                     }
+                                    calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                    calendar.set(Calendar.MINUTE, minute)
 
-                                    val updatedTask = task.copy(isDailyReminder = isDailyReminder)
+                                    val updatedTask = task.copy(
+                                        isDailyReminder = true,
+                                        dailyReminderHour = hourOfDay,
+                                        dailyReminderMinute = minute
+                                    )
                                     notificationHelper.scheduleNotification(
                                         updatedTask,
                                         calendar.timeInMillis
@@ -241,15 +245,55 @@ fun TodoScreen() {
                                 calendar.get(Calendar.MINUTE),
                                 true
                             ).show()
-                        },
-                        calendar.get(Calendar.YEAR),
-                        calendar.get(Calendar.MONTH),
-                        calendar.get(Calendar.DAY_OF_MONTH)
-                    ).show()
-                }) {
-                    Text("Set Time")
+                        }) {
+                            Text("Select Time")
+                        }
+                    } else {
+                        TextButton(onClick = {
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, dayOfMonth ->
+                                    calendar.set(year, month, dayOfMonth)
+                                    TimePickerDialog(
+                                        context,
+                                        { _, hourOfDay, minute ->
+                                            calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                            calendar.set(Calendar.MINUTE, minute)
+
+                                            todoTasks = todoTasks.map {
+                                                if (it.id == task.id) {
+                                                    it.copy(
+                                                        notificationTime = calendar.timeInMillis,
+                                                        isDailyReminder = false
+                                                    )
+                                                } else {
+                                                    it
+                                                }
+                                            }
+
+                                            notificationHelper.scheduleNotification(
+                                                task.copy(isDailyReminder = false),
+                                                calendar.timeInMillis
+                                            )
+                                            showDatePicker = false
+                                            selectedTaskForNotification = null
+                                        },
+                                        calendar.get(Calendar.HOUR_OF_DAY),
+                                        calendar.get(Calendar.MINUTE),
+                                        true
+                                    ).show()
+                                },
+                                calendar.get(Calendar.YEAR),
+                                calendar.get(Calendar.MONTH),
+                                calendar.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        }) {
+                            Text("Set One-time Reminder")
+                        }
+                    }
                 }
             },
+            confirmButton = { },
             dismissButton = {
                 TextButton(onClick = {
                     showDatePicker = false

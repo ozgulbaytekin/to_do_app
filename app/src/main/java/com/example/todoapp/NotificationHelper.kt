@@ -43,7 +43,7 @@ class NotificationHelper(private val context: Context) {
         }
     }
 
-    fun scheduleNotification(task: TodoItem, notificationTime: Long) {  // renamed parameter for clarity
+    fun scheduleNotification(task: TodoItem, notificationTime: Long) {
         val intent = Intent(context, NotificationReceiver::class.java).apply {
             action = NOTIFICATION_ACTION
             putExtra("taskId", task.id)
@@ -57,10 +57,18 @@ class NotificationHelper(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        if (task.isDailyReminder) {
-            // Set daily repeating alarm
-            val calendar = Calendar.getInstance()
-            calendar.timeInMillis = notificationTime  // Fixed line
+        if (task.isDailyReminder && task.dailyReminderHour != null && task.dailyReminderMinute != null) {
+            val calendar = Calendar.getInstance().apply {
+                timeInMillis = System.currentTimeMillis()
+                set(Calendar.HOUR_OF_DAY, task.dailyReminderHour)
+                set(Calendar.MINUTE, task.dailyReminderMinute)
+                set(Calendar.SECOND, 0)
+
+                // If time has already passed today, start from tomorrow
+                if (timeInMillis <= System.currentTimeMillis()) {
+                    add(Calendar.DAY_OF_MONTH, 1)
+                }
+            }
 
             alarmManager.setRepeating(
                 AlarmManager.RTC_WAKEUP,
@@ -69,7 +77,6 @@ class NotificationHelper(private val context: Context) {
                 pendingIntent
             )
         } else {
-            // Single notification
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
                 notificationTime,
