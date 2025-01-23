@@ -63,7 +63,6 @@ class NotificationHelper(private val context: Context) {
                 set(Calendar.HOUR_OF_DAY, task.dailyReminderHour)
                 set(Calendar.MINUTE, task.dailyReminderMinute)
                 set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
 
                 // If time has already passed today, start from tomorrow
                 if (timeInMillis <= System.currentTimeMillis()) {
@@ -71,8 +70,7 @@ class NotificationHelper(private val context: Context) {
                 }
             }
 
-            // Use inexact repeating to save battery
-            alarmManager.setInexactRepeating(
+            alarmManager.setRepeating(  // Changed from setInexactRepeating
                 AlarmManager.RTC_WAKEUP,
                 calendar.timeInMillis,
                 AlarmManager.INTERVAL_DAY,

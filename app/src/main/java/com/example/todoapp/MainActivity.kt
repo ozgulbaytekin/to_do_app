@@ -80,6 +80,8 @@ fun TodoScreen() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        CalendarView(todoTasks, completedTasks)
+
         // Input section
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -219,6 +221,7 @@ fun TodoScreen() {
                                     todoTasks = todoTasks.map {
                                         if (it.id == task.id) {
                                             it.copy(
+                                                notificationTime = calendar.timeInMillis,
                                                 dailyReminderHour = hourOfDay,
                                                 dailyReminderMinute = minute,
                                                 isDailyReminder = true
