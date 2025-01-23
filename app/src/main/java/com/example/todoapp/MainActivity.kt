@@ -2,6 +2,7 @@ package com.example.todoapp
 
 import android.Manifest
 import android.app.DatePickerDialog
+import android.app.PendingIntent
 import android.app.TimePickerDialog
 import android.content.pm.PackageManager
 import android.os.Build
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.example.todoapp.ui.theme.TodoAppTheme
 import java.util.*
+import android.content.Intent
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -62,8 +64,29 @@ fun TodoScreen() {
     fun moveTaskToCompleted(taskId: Int) {
         val taskToMove = todoTasks.find { it.id == taskId }
         taskToMove?.let {
+            // Cancel notification if it exists
+            val intent = Intent(context, NotificationReceiver::class.java).apply {
+                action = NotificationHelper.NOTIFICATION_ACTION
+                putExtra("taskId", taskId)
+                putExtra("taskTitle", it.title)
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                taskId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            notificationHelper.alarmManager.cancel(pendingIntent)
+
+            // Move task to completed list
             todoTasks = todoTasks.filter { it.id != taskId }
-            completedTasks = completedTasks + it.copy(isCompleted = true)
+            completedTasks = completedTasks + it.copy(
+                isCompleted = true,
+                notificationTime = null,
+                isDailyReminder = false,
+                dailyReminderHour = null,
+                dailyReminderMinute = null
+            )
         }
     }
 

@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import java.util.Calendar
+import com.example.todoapp.NotificationHelper.Companion.NOTIFICATION_ACTION
 
 class NotificationHelper(private val context: Context) {
     companion object {
@@ -22,7 +23,7 @@ class NotificationHelper(private val context: Context) {
         const val NOTIFICATION_ACTION = "TODO_NOTIFICATION_ACTION"
     }
 
-    private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
     init {
         createNotificationChannel()
