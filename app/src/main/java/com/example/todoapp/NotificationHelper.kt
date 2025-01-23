@@ -13,6 +13,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import java.util.Calendar
 
 class NotificationHelper(private val context: Context) {
     companion object {
@@ -42,7 +43,7 @@ class NotificationHelper(private val context: Context) {
         }
     }
 
-    fun scheduleNotification(task: TodoItem, timeInMillis: Long) {
+    fun scheduleNotification(task: TodoItem, notificationTime: Long) {  // renamed parameter for clarity
         val intent = Intent(context, NotificationReceiver::class.java).apply {
             action = NOTIFICATION_ACTION
             putExtra("taskId", task.id)
@@ -56,11 +57,25 @@ class NotificationHelper(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            timeInMillis,
-            pendingIntent
-        )
+        if (task.isDailyReminder) {
+            // Set daily repeating alarm
+            val calendar = Calendar.getInstance()
+            calendar.timeInMillis = notificationTime  // Fixed line
+
+            alarmManager.setRepeating(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                AlarmManager.INTERVAL_DAY,
+                pendingIntent
+            )
+        } else {
+            // Single notification
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                notificationTime,
+                pendingIntent
+            )
+        }
     }
 
     fun showNotification(taskId: Int, taskTitle: String) {

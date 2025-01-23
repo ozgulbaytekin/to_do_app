@@ -179,64 +179,103 @@ fun TodoScreen() {
         }
     }
 
-    // Date picker dialog
+// Date picker dialog
     if (showDatePicker && selectedTaskForNotification != null) {
         val task = selectedTaskForNotification!!
         val calendar = Calendar.getInstance()
+        var isDailyReminder by remember { mutableStateOf(false) }
 
-        DatePickerDialog(
-            context,
-            { _, year, month, dayOfMonth ->
-                calendar.set(year, month, dayOfMonth)
-                TimePickerDialog(
-                    context,
-                    { _, hourOfDay, minute ->
-                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
-                        calendar.set(Calendar.MINUTE, minute)
-
-                        todoTasks = todoTasks.map {
-                            if (it.id == task.id) {
-                                it.copy(notificationTime = calendar.timeInMillis)
-                            } else {
-                                it
-                            }
-                        }
-
-                        notificationHelper.scheduleNotification(task, calendar.timeInMillis)
-                    },
-                    calendar.get(Calendar.HOUR_OF_DAY),
-                    calendar.get(Calendar.MINUTE),
-                    true
-                ).show()
+        AlertDialog(
+            onDismissRequest = {
+                showDatePicker = false
+                selectedTaskForNotification = null
             },
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH),
-            calendar.get(Calendar.DAY_OF_MONTH)
-        ).show()
+            title = { Text("Set Reminder") },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) {
+                    Checkbox(
+                        checked = isDailyReminder,
+                        onCheckedChange = { isDailyReminder = it }
+                    )
+                    Text(
+                        text = "Remind every day",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    DatePickerDialog(
+                        context,
+                        { _, year, month, dayOfMonth ->
+                            calendar.set(year, month, dayOfMonth)
+                            TimePickerDialog(
+                                context,
+                                { _, hourOfDay, minute ->
+                                    calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                    calendar.set(Calendar.MINUTE, minute)
 
-        showDatePicker = false
-        selectedTaskForNotification = null
+                                    todoTasks = todoTasks.map {
+                                        if (it.id == task.id) {
+                                            it.copy(
+                                                notificationTime = calendar.timeInMillis,
+                                                isDailyReminder = isDailyReminder
+                                            )
+                                        } else {
+                                            it
+                                        }
+                                    }
+
+                                    val updatedTask = task.copy(isDailyReminder = isDailyReminder)
+                                    notificationHelper.scheduleNotification(
+                                        updatedTask,
+                                        calendar.timeInMillis
+                                    )
+                                    showDatePicker = false
+                                    selectedTaskForNotification = null
+                                },
+                                calendar.get(Calendar.HOUR_OF_DAY),
+                                calendar.get(Calendar.MINUTE),
+                                true
+                            ).show()
+                        },
+                        calendar.get(Calendar.YEAR),
+                        calendar.get(Calendar.MONTH),
+                        calendar.get(Calendar.DAY_OF_MONTH)
+                    ).show()
+                }) {
+                    Text("Set Time")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDatePicker = false
+                    selectedTaskForNotification = null
+                }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
-
-@Composable
-fun TodoItemRow(
-    todo: TodoItem,
-    onToggleCompletion: () -> Unit,
-    onSetNotification: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
+    @Composable
+    fun TodoItemRow(
+        todo: TodoItem,
+        onToggleCompletion: () -> Unit,
+        onSetNotification: () -> Unit
     ) {
-        Column(
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(vertical = 4.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -257,6 +296,13 @@ fun TodoItemRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
+                    if (todo.isDailyReminder && todo.notificationTime != null) {
+                        Text(
+                            text = "Daily reminder",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
                 if (!todo.isCompleted) {
@@ -278,4 +324,3 @@ fun TodoItemRow(
             }
         }
     }
-}

@@ -9,5 +9,6 @@ data class TodoItem(
     val title: String,
     val isCompleted: Boolean = false,
     val notificationTime: Long? = null,
-    val category: TaskCategory = TaskCategory.OTHER
+    val category: TaskCategory = TaskCategory.OTHER,
+    val isDailyReminder: Boolean = false
 )
