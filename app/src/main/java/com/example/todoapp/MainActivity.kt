@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.example.todoapp.ui.theme.TodoAppTheme
 import java.util.*
 import android.content.Intent
+import androidx.compose.material.icons.filled.Delete
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -198,7 +199,10 @@ fun TodoScreen() {
                 TodoItemRow(
                     todo = todoItem,
                     onToggleCompletion = { moveTaskToTodo(todoItem.id) },
-                    onSetNotification = { }
+                    onSetNotification = { },
+                    onDelete = {
+                        completedTasks = completedTasks.filter { it.id != todoItem.id }
+                    }
                 )
             }
         }
@@ -237,14 +241,20 @@ fun TodoScreen() {
                             text = "Choose daily reminder time:",
                             modifier = Modifier.padding(top = 8.dp)
                         )
+                        // Inside the dialog for daily reminders
                         TextButton(onClick = {
                             TimePickerDialog(
                                 context,
                                 { _, hourOfDay, minute ->
+                                    calendar.apply {
+                                        set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                        set(Calendar.MINUTE, minute)
+                                    }
+
                                     todoTasks = todoTasks.map {
                                         if (it.id == task.id) {
                                             it.copy(
-                                                notificationTime = calendar.timeInMillis,
+                                                notificationTime = calendar.timeInMillis,  // Add this line
                                                 dailyReminderHour = hourOfDay,
                                                 dailyReminderMinute = minute,
                                                 isDailyReminder = true
@@ -253,18 +263,12 @@ fun TodoScreen() {
                                             it
                                         }
                                     }
-                                    calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
-                                    calendar.set(Calendar.MINUTE, minute)
 
-                                    val updatedTask = task.copy(
-                                        isDailyReminder = true,
-                                        dailyReminderHour = hourOfDay,
-                                        dailyReminderMinute = minute
-                                    )
                                     notificationHelper.scheduleNotification(
-                                        updatedTask,
+                                        todoTasks.find { it.id == task.id }!!,
                                         calendar.timeInMillis
                                     )
+
                                     showDatePicker = false
                                     selectedTaskForNotification = null
                                 },
@@ -337,7 +341,8 @@ fun TodoScreen() {
 fun TodoItemRow(
     todo: TodoItem,
     onToggleCompletion: () -> Unit,
-    onSetNotification: () -> Unit
+    onSetNotification: () -> Unit,
+    onDelete: () -> Unit = {}  // Add this parameter
 ) {
     Card(
         modifier = Modifier
@@ -352,29 +357,8 @@ fun TodoItemRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = todo.title,
-                    style = if (todo.isCompleted) {
-                        MaterialTheme.typography.bodyLarge.copy(
-                            textDecoration = TextDecoration.LineThrough,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    } else {
-                        MaterialTheme.typography.bodyLarge
-                    }
-                )
-                Text(
-                    text = todo.category.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-                if (todo.isDailyReminder && todo.notificationTime != null) {
-                    Text(
-                        text = "Daily reminder",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+                Text(text = todo.title)
+                Text(text = todo.category.name)
             }
 
             if (!todo.isCompleted) {
@@ -387,6 +371,13 @@ fun TodoItemRow(
                         contentDescription = "Set notification"
                     )
                 }
+            } else {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete task"
+                    )
+                }
             }
 
             Checkbox(
@@ -394,13 +385,5 @@ fun TodoItemRow(
                 onCheckedChange = { onToggleCompletion() }
             )
         }
-    }
-    // Update TodoItemRow to show daily reminder time
-    if (todo.isDailyReminder && todo.dailyReminderHour != null) {
-        Text(
-            text = "Daily at ${String.format("%02d:%02d", todo.dailyReminderHour, todo.dailyReminderMinute)}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary
-        )
     }
 }

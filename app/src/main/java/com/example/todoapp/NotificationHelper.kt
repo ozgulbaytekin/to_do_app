@@ -49,6 +49,9 @@ class NotificationHelper(private val context: Context) {
             action = NOTIFICATION_ACTION
             putExtra("taskId", task.id)
             putExtra("taskTitle", task.title)
+            putExtra("isDailyReminder", task.isDailyReminder)
+            putExtra("dailyHour", task.dailyReminderHour)
+            putExtra("dailyMinute", task.dailyReminderMinute)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -65,22 +68,18 @@ class NotificationHelper(private val context: Context) {
                 set(Calendar.MINUTE, task.dailyReminderMinute)
                 set(Calendar.SECOND, 0)
 
-                // If time has already passed today, start from tomorrow
                 if (timeInMillis <= System.currentTimeMillis()) {
                     add(Calendar.DAY_OF_MONTH, 1)
                 }
             }
 
-            alarmManager.setRepeating(  // Changed from setInexactRepeating
-                AlarmManager.RTC_WAKEUP,
-                calendar.timeInMillis,
-                AlarmManager.INTERVAL_DAY,
+            alarmManager.setAlarmClock(  // Changed to setAlarmClock for more reliable daily reminders
+                AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent),
                 pendingIntent
             )
         } else {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                notificationTime,
+            alarmManager.setAlarmClock(
+                AlarmManager.AlarmClockInfo(notificationTime, pendingIntent),
                 pendingIntent
             )
         }
