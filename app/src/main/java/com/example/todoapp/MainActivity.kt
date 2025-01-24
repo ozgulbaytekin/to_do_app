@@ -214,7 +214,6 @@ fun TodoScreen() {
         val calendar = Calendar.getInstance()
         var isDailyReminder by remember { mutableStateOf(false) }
 
-// In TodoScreen, update the AlertDialog:
         AlertDialog(
             onDismissRequest = {
                 showDatePicker = false
@@ -241,7 +240,6 @@ fun TodoScreen() {
                             text = "Choose daily reminder time:",
                             modifier = Modifier.padding(top = 8.dp)
                         )
-                        // Inside the dialog for daily reminders
                         TextButton(onClick = {
                             TimePickerDialog(
                                 context,
@@ -254,7 +252,7 @@ fun TodoScreen() {
                                     todoTasks = todoTasks.map {
                                         if (it.id == task.id) {
                                             it.copy(
-                                                notificationTime = calendar.timeInMillis,  // Add this line
+                                                notificationTime = calendar.timeInMillis,
                                                 dailyReminderHour = hourOfDay,
                                                 dailyReminderMinute = minute,
                                                 isDailyReminder = true
@@ -335,14 +333,14 @@ fun TodoScreen() {
             }
         )
     }
-
 }
+
 @Composable
 fun TodoItemRow(
     todo: TodoItem,
     onToggleCompletion: () -> Unit,
     onSetNotification: () -> Unit,
-    onDelete: () -> Unit = {}  // Add this parameter
+    onDelete: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -357,8 +355,29 @@ fun TodoItemRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = todo.title)
-                Text(text = todo.category.name)
+                Text(
+                    text = todo.title,
+                    style = if (todo.isCompleted) {
+                        MaterialTheme.typography.bodyLarge.copy(
+                            textDecoration = TextDecoration.LineThrough,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    } else {
+                        MaterialTheme.typography.bodyLarge
+                    }
+                )
+                Text(
+                    text = todo.category.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                if (todo.isDailyReminder && todo.dailyReminderHour != null) {
+                    Text(
+                        text = "Daily at ${String.format("%02d:%02d", todo.dailyReminderHour, todo.dailyReminderMinute)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             if (!todo.isCompleted) {
