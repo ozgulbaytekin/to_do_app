@@ -21,8 +21,8 @@ class NotificationHelper(private val context: Context) {
         const val CHANNEL_ID = "todo_channel"
         const val CHANNEL_NAME = "Todo Notifications"
         const val NOTIFICATION_ACTION = "TODO_NOTIFICATION_ACTION"
+        const val ROUTINE_NOTIFICATION_ACTION = "ROUTINE_NOTIFICATION_ACTION"
     }
-
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
     init {
@@ -111,6 +111,67 @@ class NotificationHelper(private val context: Context) {
         ) {
             with(NotificationManagerCompat.from(context)) {
                 notify(taskId, builder.build())
+            }
+        }
+    }
+    fun scheduleRoutineNotification(routine: RoutineItem) {
+        val intent = Intent(context, NotificationReceiver::class.java).apply {
+            action = ROUTINE_NOTIFICATION_ACTION
+            putExtra("routineId", routine.id)
+            putExtra("routineTitle", routine.title)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            routine.id,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = System.currentTimeMillis()
+            set(Calendar.HOUR_OF_DAY, routine.routineStartHour ?: 0)
+            set(Calendar.MINUTE, routine.routineStartMinute ?: 0)
+            set(Calendar.SECOND, 0)
+
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+
+        alarmManager.setAlarmClock(
+            AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent),
+            pendingIntent
+        )
+    }
+
+    fun showNotification(id: Int, title: String, isTask: Boolean) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            id,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(if (isTask) "Todo Task Reminder" else "Routine Reminder")
+            .setContentText(title)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            with(NotificationManagerCompat.from(context)) {
+                notify(id, builder.build())
             }
         }
     }

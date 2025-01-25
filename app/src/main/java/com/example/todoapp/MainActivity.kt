@@ -77,7 +77,8 @@ fun TodoScreen() {
             },
             onRoutineCreate = { newRoutine ->
                 routines = routines + newRoutine
-                showRoutinesList = true
+                val notificationHelper = NotificationHelper(context)
+                notificationHelper.scheduleRoutineNotification(newRoutine)
             },
             existingRoutines = routines
         )

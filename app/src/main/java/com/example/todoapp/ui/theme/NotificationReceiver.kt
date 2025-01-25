@@ -6,13 +6,14 @@ import android.content.Intent
 
 class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val notificationHelper = NotificationHelper(context)
+
         if (intent.action == NotificationHelper.NOTIFICATION_ACTION) {
             val taskId = intent.getIntExtra("taskId", -1)
             val taskTitle = intent.getStringExtra("taskTitle") ?: return
             val isDailyReminder = intent.getBooleanExtra("isDailyReminder", false)
 
-            val notificationHelper = NotificationHelper(context)
-            notificationHelper.showNotification(taskId, "$taskTitle${if (isDailyReminder) " (Daily)" else ""}")
+            notificationHelper.showNotification(taskId, "$taskTitle${if (isDailyReminder) " (Daily)" else ""}", true)
 
             // Reschedule next daily reminder if needed
             if (isDailyReminder) {
@@ -27,6 +28,11 @@ class NotificationReceiver : BroadcastReceiver() {
                 )
                 notificationHelper.scheduleNotification(task, System.currentTimeMillis())
             }
+        } else if (intent.action == NotificationHelper.ROUTINE_NOTIFICATION_ACTION) {
+            val routineId = intent.getIntExtra("routineId", -1)
+            val routineTitle = intent.getStringExtra("routineTitle") ?: return
+
+            notificationHelper.showNotification(routineId, routineTitle, false)
         }
     }
 }
