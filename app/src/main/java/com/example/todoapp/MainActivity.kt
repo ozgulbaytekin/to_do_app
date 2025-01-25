@@ -28,6 +28,9 @@ import android.content.Intent
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.List
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.ViewList
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,12 +54,139 @@ fun TodoApp() {
         }
     }
 }
+@Composable
+fun ReminderDialog(
+    task: TodoItem,
+    todoTasks: List<TodoItem>,
+    notificationHelper: NotificationHelper,
+    onDismiss: () -> Unit,
+    onUpdateTasks: (List<TodoItem>) -> Unit
+) {
+    val context = LocalContext.current
+    val calendar = Calendar.getInstance()
+    var isDailyReminder by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set Reminder") },
+        text = {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) {
+                    Checkbox(
+                        checked = isDailyReminder,
+                        onCheckedChange = { isDailyReminder = it }
+                    )
+                    Text(
+                        text = "Remind every day",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+                if (isDailyReminder) {
+                    Text(
+                        text = "Choose daily reminder time:",
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    TextButton(onClick = {
+                        TimePickerDialog(
+                            context,
+                            { _, hourOfDay, minute ->
+                                calendar.apply {
+                                    set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                    set(Calendar.MINUTE, minute)
+                                }
+
+                                val updatedTasks = todoTasks.map {
+                                    if (it.id == task.id) {
+                                        it.copy(
+                                            notificationTime = calendar.timeInMillis,
+                                            dailyReminderHour = hourOfDay,
+                                            dailyReminderMinute = minute,
+                                            isDailyReminder = true
+                                        )
+                                    } else {
+                                        it
+                                    }
+                                }
+
+                                notificationHelper.scheduleNotification(
+                                    updatedTasks.find { it.id == task.id }!!,
+                                    calendar.timeInMillis
+                                )
+
+                                onUpdateTasks(updatedTasks)
+                                onDismiss()
+                            },
+                            calendar.get(Calendar.HOUR_OF_DAY),
+                            calendar.get(Calendar.MINUTE),
+                            true
+                        ).show()
+                    }) {
+                        Text("Select Time")
+                    }
+                } else {
+                    TextButton(onClick = {
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                calendar.set(year, month, dayOfMonth)
+                                TimePickerDialog(
+                                    context,
+                                    { _, hourOfDay, minute ->
+                                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                        calendar.set(Calendar.MINUTE, minute)
+
+                                        val updatedTasks = todoTasks.map {
+                                            if (it.id == task.id) {
+                                                it.copy(
+                                                    notificationTime = calendar.timeInMillis,
+                                                    isDailyReminder = false
+                                                )
+                                            } else {
+                                                it
+                                            }
+                                        }
+
+                                        notificationHelper.scheduleNotification(
+                                            task.copy(isDailyReminder = false),
+                                            calendar.timeInMillis
+                                        )
+
+                                        onUpdateTasks(updatedTasks)
+                                        onDismiss()
+                                    },
+                                    calendar.get(Calendar.HOUR_OF_DAY),
+                                    calendar.get(Calendar.MINUTE),
+                                    true
+                                ).show()
+                            },
+                            calendar.get(Calendar.YEAR),
+                            calendar.get(Calendar.MONTH),
+                            calendar.get(Calendar.DAY_OF_MONTH)
+                        ).show()
+                    }) {
+                        Text("Set One-time Reminder")
+                    }
+                }
+            }
+        },
+        confirmButton = { },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodoScreen() {
     val context = LocalContext.current
     val notificationHelper = remember { NotificationHelper(context) }
+
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedTaskForNotification by remember { mutableStateOf<TodoItem?>(null) }
     var todoText by remember { mutableStateOf("") }
@@ -65,20 +195,14 @@ fun TodoScreen() {
     var todoTasks by remember { mutableStateOf(listOf<TodoItem>()) }
     var completedTasks by remember { mutableStateOf(listOf<TodoItem>()) }
     var showRoutineDialog by remember { mutableStateOf(false) }
-    var routines by remember { mutableStateOf(listOf<RoutineItem>()) }
     var showRoutinesList by remember { mutableStateOf(false) }
+    var routines by remember { mutableStateOf(listOf<RoutineItem>()) }
 
-// Add this where showRoutineDialog is handled
     if (showRoutineDialog) {
         RoutineDialog(
-            onDismiss = {
-                showRoutineDialog = false
-                showRoutinesList = true
-            },
+            onDismiss = { showRoutineDialog = false },
             onRoutineCreate = { newRoutine ->
                 routines = routines + newRoutine
-                val notificationHelper = NotificationHelper(context)
-                notificationHelper.scheduleRoutineNotification(newRoutine)
             },
             existingRoutines = routines
         )
@@ -124,8 +248,6 @@ fun TodoScreen() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-
-        // Keep your existing Routines button:
         Button(
             onClick = { showRoutineDialog = true },
             modifier = Modifier.fillMaxWidth()
@@ -135,17 +257,17 @@ fun TodoScreen() {
             Text("Add Routine")
         }
 
-// Add new button for viewing routines:
         Button(
             onClick = { showRoutinesList = !showRoutinesList },
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
         ) {
             Icon(Icons.Default.ViewList, contentDescription = "View Routines")
             Spacer(Modifier.width(8.dp))
-            Text("View Routines")
+            Text(if (showRoutinesList) "Hide Routines" else "View Routines")
         }
 
-// Add conditional rendering for routines list:
         if (showRoutinesList) {
             RoutinesList(
                 routines = routines,
@@ -155,13 +277,9 @@ fun TodoScreen() {
             )
         }
 
-
         CalendarView(todoTasks, completedTasks)
 
-        // Input section
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = todoText,
                 onValueChange = { todoText = it },
@@ -177,9 +295,7 @@ fun TodoScreen() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box {
-                    OutlinedButton(
-                        onClick = { showCategoryMenu = true }
-                    ) {
+                    OutlinedButton(onClick = { showCategoryMenu = true }) {
                         Text(selectedCategory.name)
                     }
 
@@ -223,9 +339,7 @@ fun TodoScreen() {
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
         )
-        LazyColumn(
-            modifier = Modifier.weight(1f)
-        ) {
+        LazyColumn(modifier = Modifier.weight(1f)) {
             items(todoTasks) { todoItem ->
                 TodoItemRow(
                     todo = todoItem,
@@ -244,9 +358,7 @@ fun TodoScreen() {
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
         )
-        LazyColumn(
-            modifier = Modifier.weight(1f)
-        ) {
+        LazyColumn(modifier = Modifier.weight(1f)) {
             items(completedTasks) { todoItem ->
                 TodoItemRow(
                     todo = todoItem,
@@ -258,132 +370,22 @@ fun TodoScreen() {
                 )
             }
         }
-    }
 
-    // Date picker dialog
-    if (showDatePicker && selectedTaskForNotification != null) {
-        val task = selectedTaskForNotification!!
-        val calendar = Calendar.getInstance()
-        var isDailyReminder by remember { mutableStateOf(false) }
-
-        AlertDialog(
-            onDismissRequest = {
-                showDatePicker = false
-                selectedTaskForNotification = null
-            },
-            title = { Text("Set Reminder") },
-            text = {
-                Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        Checkbox(
-                            checked = isDailyReminder,
-                            onCheckedChange = { isDailyReminder = it }
-                        )
-                        Text(
-                            text = "Remind every day",
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-                    if (isDailyReminder) {
-                        Text(
-                            text = "Choose daily reminder time:",
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                        TextButton(onClick = {
-                            TimePickerDialog(
-                                context,
-                                { _, hourOfDay, minute ->
-                                    calendar.apply {
-                                        set(Calendar.HOUR_OF_DAY, hourOfDay)
-                                        set(Calendar.MINUTE, minute)
-                                    }
-
-                                    todoTasks = todoTasks.map {
-                                        if (it.id == task.id) {
-                                            it.copy(
-                                                notificationTime = calendar.timeInMillis,
-                                                dailyReminderHour = hourOfDay,
-                                                dailyReminderMinute = minute,
-                                                isDailyReminder = true
-                                            )
-                                        } else {
-                                            it
-                                        }
-                                    }
-
-                                    notificationHelper.scheduleNotification(
-                                        todoTasks.find { it.id == task.id }!!,
-                                        calendar.timeInMillis
-                                    )
-
-                                    showDatePicker = false
-                                    selectedTaskForNotification = null
-                                },
-                                calendar.get(Calendar.HOUR_OF_DAY),
-                                calendar.get(Calendar.MINUTE),
-                                true
-                            ).show()
-                        }) {
-                            Text("Select Time")
-                        }
-                    } else {
-                        TextButton(onClick = {
-                            DatePickerDialog(
-                                context,
-                                { _, year, month, dayOfMonth ->
-                                    calendar.set(year, month, dayOfMonth)
-                                    TimePickerDialog(
-                                        context,
-                                        { _, hourOfDay, minute ->
-                                            calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
-                                            calendar.set(Calendar.MINUTE, minute)
-
-                                            todoTasks = todoTasks.map {
-                                                if (it.id == task.id) {
-                                                    it.copy(
-                                                        notificationTime = calendar.timeInMillis,
-                                                        isDailyReminder = false
-                                                    )
-                                                } else {
-                                                    it
-                                                }
-                                            }
-
-                                            notificationHelper.scheduleNotification(
-                                                task.copy(isDailyReminder = false),
-                                                calendar.timeInMillis
-                                            )
-                                            showDatePicker = false
-                                            selectedTaskForNotification = null
-                                        },
-                                        calendar.get(Calendar.HOUR_OF_DAY),
-                                        calendar.get(Calendar.MINUTE),
-                                        true
-                                    ).show()
-                                },
-                                calendar.get(Calendar.YEAR),
-                                calendar.get(Calendar.MONTH),
-                                calendar.get(Calendar.DAY_OF_MONTH)
-                            ).show()
-                        }) {
-                            Text("Set One-time Reminder")
-                        }
-                    }
-                }
-            },
-            confirmButton = { },
-            dismissButton = {
-                TextButton(onClick = {
+        // Date picker dialog
+        if (showDatePicker && selectedTaskForNotification != null) {
+            ReminderDialog(
+                task = selectedTaskForNotification!!,
+                todoTasks = todoTasks,
+                notificationHelper = notificationHelper,
+                onDismiss = {
                     showDatePicker = false
                     selectedTaskForNotification = null
-                }) {
-                    Text("Cancel")
+                },
+                onUpdateTasks = { updatedTasks ->
+                    todoTasks = updatedTasks
                 }
-            }
-        )
+            )
+        }
     }
 }
 
@@ -394,10 +396,24 @@ fun TodoItemRow(
     onSetNotification: () -> Unit,
     onDelete: () -> Unit = {}
 ) {
+    val categoryColor = when(todo.category) {
+        TaskCategory.PERSONAL -> Color(0xFF2196F3)
+        TaskCategory.WORK -> Color(0xFFF44336)
+        TaskCategory.HEALTH -> Color(0xFF4CAF50)
+        TaskCategory.STUDY -> Color(0xFFFF9800)
+        TaskCategory.SHOPPING -> Color(0xFF9C27B0)
+        else -> MaterialTheme.colorScheme.secondary
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
@@ -406,6 +422,16 @@ fun TodoItemRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Category color indicator
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(categoryColor, CircleShape)
+                    .align(Alignment.CenterVertically)
+            )
+
+            Spacer(Modifier.width(12.dp))
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = todo.title,
@@ -432,29 +458,36 @@ fun TodoItemRow(
                 }
             }
 
-            if (!todo.isCompleted) {
-                IconButton(onClick = onSetNotification) {
-                    Icon(
-                        imageVector = if (todo.notificationTime != null)
-                            Icons.Filled.Notifications
-                        else
-                            Icons.Outlined.Notifications,
-                        contentDescription = "Set notification"
-                    )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!todo.isCompleted) {
+                    IconButton(onClick = onSetNotification) {
+                        Icon(
+                            imageVector = if (todo.notificationTime != null)
+                                Icons.Filled.Notifications
+                            else
+                                Icons.Outlined.Notifications,
+                            contentDescription = "Set notification",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                } else {
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Delete task",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
-            } else {
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Delete task"
-                    )
-                }
-            }
 
-            Checkbox(
-                checked = todo.isCompleted,
-                onCheckedChange = { onToggleCompletion() }
-            )
+                Checkbox(
+                    checked = todo.isCompleted,
+                    onCheckedChange = { onToggleCompletion() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
         }
     }
 }

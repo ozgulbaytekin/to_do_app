@@ -14,17 +14,28 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
+import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = Color(0xFF3F51B5),      // Deep Indigo
+    secondary = Color(0xFF2196F3),    // Bright Blue
+    tertiary = Color(0xFF4CAF50),     // Green for positive actions
+    background = Color(0xFFF5F5F5),   // Light gray background
+    surface = Color.White,
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onBackground = Color.Black.copy(alpha = 0.87f)
+)
+
+private val DarkColorScheme = darkColorScheme(
+    primary = Color(0xFF7986CB),      // Lighter Indigo
+    secondary = Color(0xFF64B5F6),    // Light Blue
+    tertiary = Color(0xFF81C784),     // Light Green
+    background = Color(0xFF121212),   // Very dark background
+    surface = Color(0xFF1E1E1E),      // Dark surface
+    onPrimary = Color.White,
+    onSecondary = Color.Black.copy(alpha = 0.87f),
+    onBackground = Color.White
 )
 
 @Composable
@@ -41,6 +52,16 @@ fun TodoAppTheme(
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
+    val colors = lightColorScheme(
+        primary = Color(0xFF2196F3),
+        secondary = Color(0xFF03DAC6),
+        background = Color(0xFF121212),
+        surface = Color(0xFF1E1E1E),
+        onPrimary = Color.White,
+        onSecondary = Color.Black,
+        onBackground = Color.White,
+        onSurface = Color.White
+    )
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -49,6 +70,7 @@ fun TodoAppTheme(
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
         }
     }
+
 
     MaterialTheme(
         colorScheme = colorScheme,
