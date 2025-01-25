@@ -28,6 +28,7 @@ import android.content.Intent
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.ViewList
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -65,14 +66,18 @@ fun TodoScreen() {
     var completedTasks by remember { mutableStateOf(listOf<TodoItem>()) }
     var showRoutineDialog by remember { mutableStateOf(false) }
     var routines by remember { mutableStateOf(listOf<RoutineItem>()) }
-    var lifePoints by remember { mutableStateOf(0) }
+    var showRoutinesList by remember { mutableStateOf(false) }
 
 // Add this where showRoutineDialog is handled
     if (showRoutineDialog) {
         RoutineDialog(
-            onDismiss = { showRoutineDialog = false },
+            onDismiss = {
+                showRoutineDialog = false
+                showRoutinesList = true
+            },
             onRoutineCreate = { newRoutine ->
                 routines = routines + newRoutine
+                showRoutinesList = true
             },
             existingRoutines = routines
         )
@@ -118,14 +123,37 @@ fun TodoScreen() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
+
+        // Keep your existing Routines button:
         Button(
             onClick = { showRoutineDialog = true },
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Default.List, contentDescription = "Routines")
             Spacer(Modifier.width(8.dp))
-            Text("Routines")
+            Text("Add Routine")
         }
+
+// Add new button for viewing routines:
+        Button(
+            onClick = { showRoutinesList = !showRoutinesList },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+        ) {
+            Icon(Icons.Default.ViewList, contentDescription = "View Routines")
+            Spacer(Modifier.width(8.dp))
+            Text("View Routines")
+        }
+
+// Add conditional rendering for routines list:
+        if (showRoutinesList) {
+            RoutinesList(
+                routines = routines,
+                onDeleteRoutine = { id ->
+                    routines = routines.filter { it.id != id }
+                }
+            )
+        }
+
 
         CalendarView(todoTasks, completedTasks)
 
