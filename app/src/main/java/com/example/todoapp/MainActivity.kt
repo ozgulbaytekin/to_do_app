@@ -26,6 +26,8 @@ import com.example.todoapp.ui.theme.TodoAppTheme
 import java.util.*
 import android.content.Intent
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.List
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -61,11 +63,24 @@ fun TodoScreen() {
     var showCategoryMenu by remember { mutableStateOf(false) }
     var todoTasks by remember { mutableStateOf(listOf<TodoItem>()) }
     var completedTasks by remember { mutableStateOf(listOf<TodoItem>()) }
+    var showRoutineDialog by remember { mutableStateOf(false) }
+    var routines by remember { mutableStateOf(listOf<RoutineItem>()) }
+    var lifePoints by remember { mutableStateOf(0) }
+
+// Add this where showRoutineDialog is handled
+    if (showRoutineDialog) {
+        RoutineDialog(
+            onDismiss = { showRoutineDialog = false },
+            onRoutineCreate = { newRoutine ->
+                routines = routines + newRoutine
+            },
+            existingRoutines = routines
+        )
+    }
 
     fun moveTaskToCompleted(taskId: Int) {
         val taskToMove = todoTasks.find { it.id == taskId }
         taskToMove?.let {
-            // Cancel notification if it exists
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = NotificationHelper.NOTIFICATION_ACTION
                 putExtra("taskId", taskId)
@@ -79,7 +94,6 @@ fun TodoScreen() {
             )
             notificationHelper.alarmManager.cancel(pendingIntent)
 
-            // Move task to completed list
             todoTasks = todoTasks.filter { it.id != taskId }
             completedTasks = completedTasks + it.copy(
                 isCompleted = true,
@@ -104,6 +118,15 @@ fun TodoScreen() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        Button(
+            onClick = { showRoutineDialog = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.List, contentDescription = "Routines")
+            Spacer(Modifier.width(8.dp))
+            Text("Routines")
+        }
+
         CalendarView(todoTasks, completedTasks)
 
         // Input section
@@ -208,7 +231,7 @@ fun TodoScreen() {
         }
     }
 
-// Date picker dialog
+    // Date picker dialog
     if (showDatePicker && selectedTaskForNotification != null) {
         val task = selectedTaskForNotification!!
         val calendar = Calendar.getInstance()
