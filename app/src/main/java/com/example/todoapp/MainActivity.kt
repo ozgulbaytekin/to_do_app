@@ -33,13 +33,33 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.foundation.clickable
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val preferenceDataStore = PreferenceDataStore(this)
+
         setContent {
-            TodoApp()
+            val hasSeenOnboarding by preferenceDataStore.hasSeenOnboarding.collectAsState(initial = false)
+            val scope = rememberCoroutineScope()
+            var showOnboarding by remember { mutableStateOf(hasSeenOnboarding.not()) }
+
+            TodoAppTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    if (showOnboarding) {
+                        OnboardingScreen(onFinish = {
+                            showOnboarding = false
+                            scope.launch {
+                                preferenceDataStore.saveOnboardingState(true)
+                            }
+                        })
+                    } else {
+                        TodoScreen()
+                    }
+                }
+            }
         }
     }
 }
@@ -201,6 +221,14 @@ fun TodoScreen() {
     var showRoutinesList by remember { mutableStateOf(false) }
     var showCalendar by remember { mutableStateOf(false) }
     var routines by remember { mutableStateOf(listOf<RoutineItem>()) }
+    var showOnboarding by remember { mutableStateOf(true) }
+
+    if (showOnboarding) {
+        OnboardingScreen(onFinish = { showOnboarding = false })
+    } else {
+        TodoScreen()
+    }
+
 
     if (showRoutineDialog) {
         RoutineDialog(
