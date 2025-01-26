@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.foundation.clickable
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -198,14 +199,13 @@ fun TodoScreen() {
     var completedTasks by remember { mutableStateOf(listOf<TodoItem>()) }
     var showRoutineDialog by remember { mutableStateOf(false) }
     var showRoutinesList by remember { mutableStateOf(false) }
+    var showCalendar by remember { mutableStateOf(false) }
     var routines by remember { mutableStateOf(listOf<RoutineItem>()) }
 
     if (showRoutineDialog) {
         RoutineDialog(
             onDismiss = { showRoutineDialog = false },
-            onRoutineCreate = { newRoutine ->
-                routines = routines + newRoutine
-            },
+            onRoutineCreate = { newRoutine -> routines = routines + newRoutine },
             existingRoutines = routines
         )
     }
@@ -224,7 +224,8 @@ fun TodoScreen() {
 
             todoTasks = todoTasks.filter { it.id != taskId }
             completedTasks = completedTasks + task.copy(
-                isCompleted = true, notificationTime = null, isDailyReminder = false, dailyReminderHour = null, dailyReminderMinute = null
+                isCompleted = true, notificationTime = null, isDailyReminder = false,
+                dailyReminderHour = null, dailyReminderMinute = null
             )
         }
     }
@@ -235,6 +236,7 @@ fun TodoScreen() {
             todoTasks = todoTasks + task.copy(isCompleted = false)
         }
     }
+
     @Composable
     fun RoutineReminderDialog(
         routine: RoutineItem,
@@ -297,85 +299,189 @@ fun TodoScreen() {
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Button(onClick = { showRoutineDialog = true }, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.List, contentDescription = "Routines")
-            Spacer(Modifier.width(8.dp))
-            Text("Add Routine")
-        }
+    Row(modifier = Modifier.fillMaxSize()) {
+        Sidebar(
+            showRoutineDialog = { showRoutineDialog = true },
+            toggleRoutinesList = { showRoutinesList = !showRoutinesList },
+            toggleCalendar = { showCalendar = !showCalendar },
+            isRoutinesVisible = showRoutinesList,
+            isCalendarVisible = showCalendar
+        )
 
-        Button(onClick = { showRoutinesList = !showRoutinesList }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Icon(Icons.Default.ViewList, contentDescription = "View Routines")
-            Spacer(Modifier.width(8.dp))
-            Text(if (showRoutinesList) "Hide Routines" else "View Routines")
-        }
+        Column(modifier = Modifier.weight(1f).padding(16.dp)) {
+            if (showRoutinesList) {
+                RoutinesList(routines, onDeleteRoutine = { id ->
+                    routines = routines.filter { it.id != id }
+                })
+            }
 
-        if (showRoutinesList) {
-            RoutinesList(routines, onDeleteRoutine = { id -> routines = routines.filter { it.id != id } })
-        }
+            if (showCalendar) {
+                CalendarView(todoTasks, completedTasks)
+            }
 
-        CalendarView(todoTasks, completedTasks)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = todoText,
+                    onValueChange = { todoText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Enter a task") }
+                )
 
-        Column(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(value = todoText, onValueChange = { todoText = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Enter a task") })
-
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Box {
-                    OutlinedButton(onClick = { showCategoryMenu = true }) {
-                        Text(selectedCategory.name)
-                    }
-                    DropdownMenu(expanded = showCategoryMenu, onDismissRequest = { showCategoryMenu = false }) {
-                        TaskCategory.values().forEach { category ->
-                            DropdownMenuItem(text = { Text(category.name) }, onClick = { selectedCategory = category; showCategoryMenu = false })
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box {
+                        OutlinedButton(onClick = { showCategoryMenu = true }) {
+                            Text(selectedCategory.name)
+                        }
+                        DropdownMenu(
+                            expanded = showCategoryMenu,
+                            onDismissRequest = { showCategoryMenu = false }
+                        ) {
+                            TaskCategory.values().forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category.name) },
+                                    onClick = {
+                                        selectedCategory = category
+                                        showCategoryMenu = false
+                                    }
+                                )
+                            }
                         }
                     }
-                }
 
-                Button(onClick = { if (todoText.isNotBlank()) { todoTasks = todoTasks + TodoItem(id = (todoTasks + completedTasks).size, title = todoText, isCompleted = false, category = selectedCategory); todoText = "" } }) {
-                    Text("Add")
+                    Button(onClick = {
+                        if (todoText.isNotBlank()) {
+                            todoTasks = todoTasks + TodoItem(
+                                id = (todoTasks + completedTasks).size,
+                                title = todoText,
+                                isCompleted = false,
+                                category = selectedCategory
+                            )
+                            todoText = ""
+                        }
+                    }) {
+                        Text("Add")
+                    }
                 }
             }
-        }
 
-        Text("To Do (${todoTasks.size})", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(todoTasks) { todoItem ->
-                TodoItemRow(todo = todoItem, onToggleCompletion = { moveTaskToCompleted(todoItem.id) }, onSetNotification = { selectedTaskForNotification = todoItem; showDatePicker = true })
-            }
-        }
-
-        Text("Completed (${completedTasks.size})", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(completedTasks) { todoItem ->
-                TodoItemRow(todo = todoItem, onToggleCompletion = { moveTaskToTodo(todoItem.id) }, onSetNotification = {}, onDelete = { completedTasks = completedTasks.filter { it.id != todoItem.id } })
-            }
-        }
-
-        if (showDatePicker && selectedTaskForNotification != null) {
-            ReminderDialog(
-                task = selectedTaskForNotification!!,
-                todoTasks = todoTasks,
-                notificationHelper = notificationHelper,
-                onDismiss = {
-                    showDatePicker = false
-                    selectedTaskForNotification = null
-                },
-                onUpdateTasks = { updatedTasks ->
-                    todoTasks = updatedTasks
-                }
+            Text(
+                "To Do (${todoTasks.size})",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
-        } else if (showRoutineDialog && selectedRoutineForNotification != null) {
-            RoutineReminderDialog(
-                routine = selectedRoutineForNotification!!,
-                onDismiss = {
-                    showRoutineDialog = false
-                    selectedRoutineForNotification = null
-                },
-                onUpdateRoutines = { updatedRoutines ->
-                    routines = updatedRoutines
-                },
-                notificationHelper = notificationHelper
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(todoTasks) { todoItem ->
+                    TodoItemRow(
+                        todo = todoItem,
+                        onToggleCompletion = { moveTaskToCompleted(todoItem.id) },
+                        onSetNotification = {
+                            selectedTaskForNotification = todoItem
+                            showDatePicker = true
+                        }
+                    )
+                }
+            }
+
+            Text(
+                "Completed (${completedTasks.size})",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(completedTasks) { todoItem ->
+                    TodoItemRow(
+                        todo = todoItem,
+                        onToggleCompletion = { moveTaskToTodo(todoItem.id) },
+                        onSetNotification = {},
+                        onDelete = { completedTasks = completedTasks.filter { it.id != todoItem.id } }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDatePicker && selectedTaskForNotification != null) {
+        ReminderDialog(
+            task = selectedTaskForNotification!!,
+            todoTasks = todoTasks,
+            notificationHelper = notificationHelper,
+            onDismiss = {
+                showDatePicker = false
+                selectedTaskForNotification = null
+            },
+            onUpdateTasks = { updatedTasks -> todoTasks = updatedTasks }
+        )
+    } else if (showRoutineDialog && selectedRoutineForNotification != null) {
+        RoutineReminderDialog(
+            routine = selectedRoutineForNotification!!,
+            onDismiss = {
+                showRoutineDialog = false
+                selectedRoutineForNotification = null
+            },
+            onUpdateRoutines = { updatedRoutines -> routines = updatedRoutines },
+            notificationHelper = notificationHelper
+        )
+    }
+}
+@Composable
+fun Sidebar(
+    showRoutineDialog: () -> Unit,
+    toggleRoutinesList: () -> Unit,
+    toggleCalendar: () -> Unit,
+    isRoutinesVisible: Boolean,
+    isCalendarVisible: Boolean
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .width(if (isExpanded) 240.dp else 60.dp)
+            .fillMaxHeight()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable { isExpanded = !isExpanded }
+    ) {
+        if (isExpanded) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(onClick = showRoutineDialog, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.List, "Add Routine")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Add Routine")
+                }
+
+                Button(onClick = toggleRoutinesList, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.ViewList, "View Routines")
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isRoutinesVisible) "Hide Routines" else "View Routines")
+                }
+
+                Button(onClick = toggleCalendar, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.DateRange, "Calendar")
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isCalendarVisible) "Hide Calendar" else "Show Calendar")
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IconButton(onClick = showRoutineDialog) {
+                    Icon(Icons.Default.List, "Add Routine")
+                }
+                IconButton(onClick = toggleRoutinesList) {
+                    Icon(Icons.Default.ViewList, "View Routines")
+                }
+                IconButton(onClick = toggleCalendar) {
+                    Icon(Icons.Default.DateRange, "Calendar")
+                }
+            }
         }
     }
 }
