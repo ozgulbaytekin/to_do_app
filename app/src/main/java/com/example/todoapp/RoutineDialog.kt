@@ -17,6 +17,7 @@ fun RoutineDialog(
     existingRoutines: List<RoutineItem>
 ) {
     val context = LocalContext.current
+    val notificationHelper = remember { NotificationHelper(context) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var points by remember { mutableStateOf(5) }
@@ -76,19 +77,19 @@ fun RoutineDialog(
             Button(
                 onClick = {
                     if (title.isNotBlank() && startTime != "Set start time" && endTime != "Set end time") {
-                        onRoutineCreate(
-                            RoutineItem(
-                                id = existingRoutines.size,
-                                title = title,
-                                description = description,
-                                points = points,
-                                isDailyRoutine = true,
-                                routineStartHour = startTime.split(":")[0].toInt(),
-                                routineStartMinute = startTime.split(":")[1].toInt(),
-                                routineEndHour = endTime.split(":")[0].toInt(),
-                                routineEndMinute = endTime.split(":")[1].toInt()
-                            )
+                        val routine = RoutineItem(
+                            id = existingRoutines.size,
+                            title = title,
+                            description = description,
+                            points = points,
+                            isDailyRoutine = true,
+                            routineStartHour = startTime.split(":")[0].toInt(),
+                            routineStartMinute = startTime.split(":")[1].toInt(),
+                            routineEndHour = endTime.split(":")[0].toInt(),
+                            routineEndMinute = endTime.split(":")[1].toInt()
                         )
+                        onRoutineCreate(routine)
+                        notificationHelper.scheduleRoutineNotification(routine)
                         onDismiss()
                     }
                 }

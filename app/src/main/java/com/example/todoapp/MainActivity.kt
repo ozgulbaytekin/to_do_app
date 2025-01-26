@@ -181,12 +181,14 @@ fun ReminderDialog(
     )
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodoScreen() {
     val context = LocalContext.current
     val notificationHelper = remember { NotificationHelper(context) }
 
+    var selectedRoutineForNotification by remember { mutableStateOf<RoutineItem?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedTaskForNotification by remember { mutableStateOf<TodoItem?>(null) }
     var todoText by remember { mutableStateOf("") }
@@ -209,169 +211,146 @@ fun TodoScreen() {
     }
 
     fun moveTaskToCompleted(taskId: Int) {
-        val taskToMove = todoTasks.find { it.id == taskId }
-        taskToMove?.let {
+        todoTasks.find { it.id == taskId }?.let { task ->
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = NotificationHelper.NOTIFICATION_ACTION
                 putExtra("taskId", taskId)
-                putExtra("taskTitle", it.title)
+                putExtra("taskTitle", task.title)
             }
             val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                taskId,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                context, taskId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             notificationHelper.alarmManager.cancel(pendingIntent)
 
             todoTasks = todoTasks.filter { it.id != taskId }
-            completedTasks = completedTasks + it.copy(
-                isCompleted = true,
-                notificationTime = null,
-                isDailyReminder = false,
-                dailyReminderHour = null,
-                dailyReminderMinute = null
+            completedTasks = completedTasks + task.copy(
+                isCompleted = true, notificationTime = null, isDailyReminder = false, dailyReminderHour = null, dailyReminderMinute = null
             )
         }
     }
 
     fun moveTaskToTodo(taskId: Int) {
-        val taskToMove = completedTasks.find { it.id == taskId }
-        taskToMove?.let {
+        completedTasks.find { it.id == taskId }?.let { task ->
             completedTasks = completedTasks.filter { it.id != taskId }
-            todoTasks = todoTasks + it.copy(isCompleted = false)
+            todoTasks = todoTasks + task.copy(isCompleted = false)
         }
     }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    @Composable
+    fun RoutineReminderDialog(
+        routine: RoutineItem,
+        onDismiss: () -> Unit,
+        onUpdateRoutines: (List<RoutineItem>) -> Unit,
+        notificationHelper: NotificationHelper
     ) {
-        Button(
-            onClick = { showRoutineDialog = true },
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        val context = LocalContext.current
+        val calendar = Calendar.getInstance()
+        var selectedHour by remember { mutableStateOf(routine.routineStartHour ?: 0) }
+        var selectedMinute by remember { mutableStateOf(routine.routineStartMinute ?: 0) }
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("Set Routine Reminder") },
+            text = {
+                Column {
+                    Text("Routine Reminder Time")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("${String.format("%02d:%02d", selectedHour, selectedMinute)}")
+                        Button(onClick = {
+                            TimePickerDialog(
+                                context,
+                                { _, hour, minute ->
+                                    selectedHour = hour
+                                    selectedMinute = minute
+                                },
+                                selectedHour,
+                                selectedMinute,
+                                true
+                            ).show()
+                        }) {
+                            Text("Set Time")
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val updatedRoutine = routine.copy(
+                        routineStartHour = selectedHour,
+                        routineStartMinute = selectedMinute
+                    )
+                    notificationHelper.scheduleRoutineNotification(updatedRoutine)
+                    onUpdateRoutines(routines.map { if (it.id == routine.id) updatedRoutine else it })
+                    onDismiss()
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Button(onClick = { showRoutineDialog = true }, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Default.List, contentDescription = "Routines")
             Spacer(Modifier.width(8.dp))
             Text("Add Routine")
         }
 
-        Button(
-            onClick = { showRoutinesList = !showRoutinesList },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-        ) {
+        Button(onClick = { showRoutinesList = !showRoutinesList }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             Icon(Icons.Default.ViewList, contentDescription = "View Routines")
             Spacer(Modifier.width(8.dp))
             Text(if (showRoutinesList) "Hide Routines" else "View Routines")
         }
 
         if (showRoutinesList) {
-            RoutinesList(
-                routines = routines,
-                onDeleteRoutine = { id ->
-                    routines = routines.filter { it.id != id }
-                }
-            )
+            RoutinesList(routines, onDeleteRoutine = { id -> routines = routines.filter { it.id != id } })
         }
 
         CalendarView(todoTasks, completedTasks)
 
         Column(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
-                value = todoText,
-                onValueChange = { todoText = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Enter a task") }
-            )
+            OutlinedTextField(value = todoText, onValueChange = { todoText = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Enter a task") })
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Box {
                     OutlinedButton(onClick = { showCategoryMenu = true }) {
                         Text(selectedCategory.name)
                     }
-
-                    DropdownMenu(
-                        expanded = showCategoryMenu,
-                        onDismissRequest = { showCategoryMenu = false }
-                    ) {
+                    DropdownMenu(expanded = showCategoryMenu, onDismissRequest = { showCategoryMenu = false }) {
                         TaskCategory.values().forEach { category ->
-                            DropdownMenuItem(
-                                text = { Text(category.name) },
-                                onClick = {
-                                    selectedCategory = category
-                                    showCategoryMenu = false
-                                }
-                            )
+                            DropdownMenuItem(text = { Text(category.name) }, onClick = { selectedCategory = category; showCategoryMenu = false })
                         }
                     }
                 }
 
-                Button(
-                    onClick = {
-                        if (todoText.isNotBlank()) {
-                            todoTasks = todoTasks + TodoItem(
-                                id = (todoTasks + completedTasks).size,
-                                title = todoText,
-                                isCompleted = false,
-                                category = selectedCategory
-                            )
-                            todoText = ""
-                        }
-                    }
-                ) {
+                Button(onClick = { if (todoText.isNotBlank()) { todoTasks = todoTasks + TodoItem(id = (todoTasks + completedTasks).size, title = todoText, isCompleted = false, category = selectedCategory); todoText = "" } }) {
                     Text("Add")
                 }
             }
         }
 
-        // To-do tasks section
-        Text(
-            text = "To Do (${todoTasks.size})",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-        )
+        Text("To Do (${todoTasks.size})", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(todoTasks) { todoItem ->
-                TodoItemRow(
-                    todo = todoItem,
-                    onToggleCompletion = { moveTaskToCompleted(todoItem.id) },
-                    onSetNotification = {
-                        selectedTaskForNotification = todoItem
-                        showDatePicker = true
-                    }
-                )
+                TodoItemRow(todo = todoItem, onToggleCompletion = { moveTaskToCompleted(todoItem.id) }, onSetNotification = { selectedTaskForNotification = todoItem; showDatePicker = true })
             }
         }
 
-        // Completed tasks section
-        Text(
-            text = "Completed (${completedTasks.size})",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-        )
+        Text("Completed (${completedTasks.size})", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(completedTasks) { todoItem ->
-                TodoItemRow(
-                    todo = todoItem,
-                    onToggleCompletion = { moveTaskToTodo(todoItem.id) },
-                    onSetNotification = { },
-                    onDelete = {
-                        completedTasks = completedTasks.filter { it.id != todoItem.id }
-                    }
-                )
+                TodoItemRow(todo = todoItem, onToggleCompletion = { moveTaskToTodo(todoItem.id) }, onSetNotification = {}, onDelete = { completedTasks = completedTasks.filter { it.id != todoItem.id } })
             }
         }
 
-        // Date picker dialog
         if (showDatePicker && selectedTaskForNotification != null) {
             ReminderDialog(
                 task = selectedTaskForNotification!!,
@@ -385,6 +364,18 @@ fun TodoScreen() {
                     todoTasks = updatedTasks
                 }
             )
+        } else if (showRoutineDialog && selectedRoutineForNotification != null) {
+            RoutineReminderDialog(
+                routine = selectedRoutineForNotification!!,
+                onDismiss = {
+                    showRoutineDialog = false
+                    selectedRoutineForNotification = null
+                },
+                onUpdateRoutines = { updatedRoutines ->
+                    routines = updatedRoutines
+                },
+                notificationHelper = notificationHelper
+            )
         }
     }
 }
@@ -396,41 +387,25 @@ fun TodoItemRow(
     onSetNotification: () -> Unit,
     onDelete: () -> Unit = {}
 ) {
-    val categoryColor = when(todo.category) {
-        TaskCategory.PERSONAL -> Color(0xFF2196F3)
-        TaskCategory.WORK -> Color(0xFFF44336)
-        TaskCategory.HEALTH -> Color(0xFF4CAF50)
-        TaskCategory.STUDY -> Color(0xFFFF9800)
-        TaskCategory.SHOPPING -> Color(0xFF9C27B0)
-        else -> MaterialTheme.colorScheme.secondary
-    }
+    val categoryColor = getCategoryColor(todo.category)
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Category color indicator
             Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(categoryColor, CircleShape)
-                    .align(Alignment.CenterVertically)
+                modifier = Modifier.size(12.dp).background(categoryColor, CircleShape).align(Alignment.CenterVertically)
             )
-
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -449,9 +424,9 @@ fun TodoItemRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
-                if (todo.isDailyReminder && todo.dailyReminderHour != null) {
+                if (todo.isDailyReminder && todo.dailyReminderHour != null && todo.dailyReminderMinute != null) {
                     Text(
-                        text = "Daily at ${String.format("%02d:%02d", todo.dailyReminderHour, todo.dailyReminderMinute)}",
+                        text = "Daily at ${formatTime(todo.dailyReminderHour, todo.dailyReminderMinute)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -462,10 +437,7 @@ fun TodoItemRow(
                 if (!todo.isCompleted) {
                     IconButton(onClick = onSetNotification) {
                         Icon(
-                            imageVector = if (todo.notificationTime != null)
-                                Icons.Filled.Notifications
-                            else
-                                Icons.Outlined.Notifications,
+                            imageVector = if (todo.notificationTime != null) Icons.Filled.Notifications else Icons.Outlined.Notifications,
                             contentDescription = "Set notification",
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -490,4 +462,19 @@ fun TodoItemRow(
             }
         }
     }
+}
+@Composable
+private fun getCategoryColor(category: TaskCategory): Color {
+    return when (category) {
+        TaskCategory.PERSONAL -> Color(0xFF2196F3)
+        TaskCategory.WORK -> Color(0xFFF44336)
+        TaskCategory.HEALTH -> Color(0xFF4CAF50)
+        TaskCategory.STUDY -> Color(0xFFFF9800)
+        TaskCategory.SHOPPING -> Color(0xFF9C27B0)
+        else -> MaterialTheme.colorScheme.secondary
+    }
+}
+
+private fun formatTime(hour: Int, minute: Int): String {
+    return String.format("%02d:%02d", hour, minute)
 }

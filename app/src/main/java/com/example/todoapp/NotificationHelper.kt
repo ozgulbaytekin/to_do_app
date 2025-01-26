@@ -114,36 +114,7 @@ class NotificationHelper(private val context: Context) {
             }
         }
     }
-    fun scheduleRoutineNotification(routine: RoutineItem) {
-        val intent = Intent(context, NotificationReceiver::class.java).apply {
-            action = ROUTINE_NOTIFICATION_ACTION
-            putExtra("routineId", routine.id)
-            putExtra("routineTitle", routine.title)
-        }
 
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            routine.id,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val calendar = Calendar.getInstance().apply {
-            timeInMillis = System.currentTimeMillis()
-            set(Calendar.HOUR_OF_DAY, routine.routineStartHour ?: 0)
-            set(Calendar.MINUTE, routine.routineStartMinute ?: 0)
-            set(Calendar.SECOND, 0)
-
-            if (timeInMillis <= System.currentTimeMillis()) {
-                add(Calendar.DAY_OF_MONTH, 1)
-            }
-        }
-
-        alarmManager.setAlarmClock(
-            AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent),
-            pendingIntent
-        )
-    }
 
     fun showNotification(id: Int, title: String, isTask: Boolean) {
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -174,5 +145,38 @@ class NotificationHelper(private val context: Context) {
                 notify(id, builder.build())
             }
         }
+    }
+    fun scheduleRoutineNotification(routine: RoutineItem) {
+        val intent = Intent(context, NotificationReceiver::class.java).apply {
+            action = ROUTINE_NOTIFICATION_ACTION
+            putExtra("routineId", routine.id)
+            putExtra("routineTitle", routine.title)
+            putExtra("isDailyRoutine", routine.isDailyRoutine)
+            putExtra("routineStartHour", routine.routineStartHour)
+            putExtra("routineStartMinute", routine.routineStartMinute)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            routine.id + 10000, // Offset to avoid conflicts with todo notifications
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = System.currentTimeMillis()
+            set(Calendar.HOUR_OF_DAY, routine.routineStartHour ?: 0)
+            set(Calendar.MINUTE, routine.routineStartMinute ?: 0)
+            set(Calendar.SECOND, 0)
+
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+
+        alarmManager.setAlarmClock(
+            AlarmManager.AlarmClockInfo(calendar.timeInMillis, pendingIntent),
+            pendingIntent
+        )
     }
 }
